@@ -1,16 +1,18 @@
-type VNodeTag = string | Function;
+import { Component } from "./Component";
+
+type VNodeTag = string | Function | Component | null;
 
 type VNodeHelper = (
   tag: VNodeTag,
-  props: VNodeData | null,
-  children: VNodeChildren
+  props?: VNodeData | null,
+  children?: VNodeChildren
 ) => VNode;
 
-export type VNodeChildren = [] | {} | string | null;
+export type VNodeChildren = VNode[] | VNode | string | null;
 
 export interface VNode {
   tag: VNodeTag;
-  el?: HTMLElement;
+  el?: HTMLElement | Text;
   data: VNodeData | null;
   flag: VNodeFLags; // VNode 类型
   children?: VNodeChildren;
@@ -47,9 +49,9 @@ export const h: VNodeHelper = function (tag, props = null, children = null) {
   }
 
   return {
-    tag: tag,
-    data: props,
+    tag,
     children,
     flag,
+    data: props,
   };
 };

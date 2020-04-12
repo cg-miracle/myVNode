@@ -1,47 +1,117 @@
-import { VNode, VNodeFLags, VNodeData, VNodeChildren } from "./vnode";
+import { VNode, VNodeFLags, VNodeData, VNodeChildren, h } from "./vnode";
+import { patch } from "./patch";
+import { ClassComponent } from "./Component";
 
-type containerType = HTMLElement | null;
+export interface containerType extends HTMLElement {
+  vnode?: VNode | null; //用来存放 oldVNode 方便对比
+}
 
 export function render(vnode: VNode, container: containerType) {
-  if (!container) {
-    throw new Error("miss container");
+  const oldVNode = container.vnode;
+  if (!oldVNode) {
+    mount(vnode, container);
+    container.vnode = vnode;
+  } else {
+    if (vnode) {
+      // 新旧节点同时存在 对比差异进行patch
+      patch(oldVNode, vnode, container);
+      container.vnode = vnode;
+    } else {
+      // 只有旧节点没有新节点说明需要删除
+      oldVNode.el && container.removeChild(oldVNode.el);
+      container.vnode = null;
+    }
   }
+}
+ 
+export function mount(vnode: VNode, container: containerType) {
   const { flag } = vnode;
   switch (flag) {
     case VNodeFLags.HTMLELEMENT:
       mountELement(vnode, container);
       break;
+    case VNodeFLags.TEXT:
+      mountText(vnode, container);
+      break;
+    case VNodeFLags.STATEFUL_COMPONENT:
+      mountComponent(vnode, container);
+      break;
+    case VNodeFLags.FUNCTIONAL_COMPONENT:
+      mountComponent(vnode, container);
+      break;
   }
 }
 
+// 挂载组件
+function mountComponent(vnode: VNode, container: containerType) {
+  const { flag } = vnode;
+  if (flag === VNodeFLags.STATEFUL_COMPONENT) {
+    mountStatefulComponent(vnode, container);
+  } else {
+    mountFunctionalComponent(vnode, container);
+  }
+}
+
+function mountStatefulComponent(vnode: VNode, container: containerType) {
+  /**
+   * 有状态组件此刻tag是一个class
+   * 实例化组件 获取mount返回的vnode
+   */
+  const { tag } = vnode;
+  const statefulComp = tag as ClassComponent;
+  const instance = new statefulComp();
+  instance.$vnode = instance.render(); // 方便获取挂载后的真实el元素
+  mount(instance.$vnode, container);
+  instance.$el = vnode.el = instance.$vnode.el;
+}
+
+function mountFunctionalComponent(vnode: VNode, container: containerType) {
+  const { tag, data } = vnode;
+
+  const functionalComp = tag as Function;
+  const $vnode = functionalComp(data);
+  mount($vnode, container);
+  vnode.el = $vnode.el;
+}
+
+// 挂载文本节点
+function mountText(vnode: VNode, container: containerType) {
+  let { children } = vnode;
+  const $text = document.createTextNode(children as string);
+  vnode.el = $text;
+  container && container.appendChild($text);
+}
+
+// 挂载普通html 元素
 function mountELement(vnode: VNode, container: containerType) {
   let { tag, data, children } = vnode;
   const $dom = document.createElement(tag as string);
   vnode.el = $dom;
 
   data && updateProps(vnode, data);
-  children && updateChildren(children, container);
+  children && updateChildren(children, $dom);
   container && container.appendChild($dom);
 }
 
 function updateProps(vnode: VNode, data: VNodeData) {
   const { el } = vnode;
+  let $el = el as HTMLElement;
   for (const propKey in data) {
     switch (propKey) {
       case "style":
         for (const key in data.style) {
-          el && (el.style.cssText = data.style[key]);
+          $el && ($el.style.cssText += `${key}:${data.style[key]}`);
         }
         break;
       case "class":
-        el && data.class && (el.className = data.class);
+        $el && data.class && ($el.className = data.class);
         break;
       default:
         // on 开头当作事件处理
         if (propKey[0] === "o" && propKey[1] === "n") {
           const eventName = propKey.slice(2);
           const eventCb = data[propKey];
-          document.addEventListener(eventName, eventCb);
+          $el.addEventListener(eventName, eventCb);
         }
         break;
     }
@@ -49,7 +119,15 @@ function updateProps(vnode: VNode, data: VNodeData) {
 }
 
 function updateChildren(children: VNodeChildren, container: containerType) {
-  if (typeof children === "object") {
-    
+  /**
+   * 单个字符串就是文本节点
+   * children是单个对象就是single vnode
+   * chilren是数组就是vnode array
+   */
+  if (typeof children === "string") {
+    const textVnode = h(null, null, children);
+    mount(textVnode, container);
+  } else if (Array.isArray(children)) {
+    children.forEach((value) => mount(value, container));
   }
 }
