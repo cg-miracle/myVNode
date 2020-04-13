@@ -1,5 +1,5 @@
 import { VNode, VNodeFLags, VNodeData, VNodeChildren, h } from "./vnode";
-import { patch } from "./patch";
+import { patch, patchProps } from "./patch";
 import { ClassComponent } from "./Component";
 
 export interface containerType extends HTMLElement {
@@ -23,7 +23,7 @@ export function render(vnode: VNode, container: containerType) {
     }
   }
 }
- 
+
 export function mount(vnode: VNode, container: containerType) {
   const { flag } = vnode;
   switch (flag) {
@@ -94,27 +94,8 @@ function mountELement(vnode: VNode, container: containerType) {
 }
 
 function updateProps(vnode: VNode, data: VNodeData) {
-  const { el } = vnode;
-  let $el = el as HTMLElement;
   for (const propKey in data) {
-    switch (propKey) {
-      case "style":
-        for (const key in data.style) {
-          $el && ($el.style.cssText += `${key}:${data.style[key]}`);
-        }
-        break;
-      case "class":
-        $el && data.class && ($el.className = data.class);
-        break;
-      default:
-        // on 开头当作事件处理
-        if (propKey[0] === "o" && propKey[1] === "n") {
-          const eventName = propKey.slice(2);
-          const eventCb = data[propKey];
-          $el.addEventListener(eventName, eventCb);
-        }
-        break;
-    }
+    patchProps(vnode.el as HTMLElement, propKey, null, data[propKey]);
   }
 }
 
