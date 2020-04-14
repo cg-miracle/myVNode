@@ -25,16 +25,19 @@ export const patch = function (
   }
 };
 
-export function patchProps(
-  el: any,
-  propKey: string,
-  oldVal: any,
-  newVal: any
-) {
+export function patchProps(el: any, propKey: string, oldVal: any, newVal: any) {
   switch (propKey) {
     case "style":
+      /**
+       * 更新样式
+       */
       for (const key in newVal) {
-        el && (el.style.cssText += `${key}:${newVal[key]}`);
+        setStyle(el.style, key, newVal[key]);
+      }
+      for (const key in oldVal) {
+        if (!newVal.hasOwnProperty(key)) {
+          setStyle(el.style, key, "");
+        }
       }
       break;
     case "class":
@@ -77,11 +80,20 @@ function patchElement(
   const el = (oldVNode.el = newVNode.el);
   const oldProps = oldVNode.data;
   const newProps = newVNode.data;
+  // 将新增属性全部patch 再把不存在于新data上的key&&value 从oldProps上删除
   if (newProps) {
     for (const key in newProps) {
       const oldPropValue = oldProps && oldProps[key];
       const newPropValue = newProps && newProps[key];
       patchProps(el as HTMLElement, key, oldPropValue, newPropValue);
+    }
+  }
+  if (oldProps) {
+    for (const k in oldProps) {
+      const oldValue = oldProps[k];
+      if (oldValue && newProps && !newProps.hasOwnProperty(k)) {
+        patchProps(el as HTMLElement, k, oldValue, null);
+      }
     }
   }
 }

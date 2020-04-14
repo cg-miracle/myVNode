@@ -8,6 +8,7 @@ export interface containerType extends HTMLElement {
 
 export function render(vnode: VNode, container: containerType) {
   const oldVNode = container.vnode;
+  console.log(oldVNode)
   if (!oldVNode) {
     mount(vnode, container);
     container.vnode = vnode;
