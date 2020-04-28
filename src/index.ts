@@ -13,20 +13,32 @@ class App extends Component {
 
   state = {
     name: "miracle",
+    isChange: false,
   };
 
+  componentDidMount() {
+    setTimeout(() => {
+      this.state.name = "oishi22222";
+      this.state.isChange = true;
+      this._update(); // 主动触发更新
+    }, 1000);
+  }
+
   clickHandler() {
-     alert("我是box");
+    alert("我是box");
   }
 
   render() {
+    return h(BoxItem, {
+      name: this.state.name,
+    });
     return h(
       "div",
       {
         class: "box",
-        id:'app',
+        id: "app",
         style: {
-          background: "blue",
+          background: this.state.isChange ? "red" : "blue",
           color: "#fff",
         },
         onclick: this.clickHandler.bind(this),
@@ -35,53 +47,27 @@ class App extends Component {
         h(BoxItem, {
           name: this.state.name,
         }),
-        h("p", null, "我是p标签"),
+        h("p", null, "我是p1标签"),
       ]
     );
   }
 }
-
-class App2 extends Component {
-  constructor() {
-    super();
-  }
-
-  state = {
-    name: "miracle",
-  };
-
-  clickHandler() {
-     alert("我是box");
-  }
-
-  render() {
-    return h(
-      "div",
-      {
-        class: "box box2",
-        id:'app',
-        style: {
-          background: "red",
-          color: "#fff",
-        },
-        onclick: this.clickHandler.bind(this),
-      },
-      [
-        h(BoxItem, {
-          name: this.state.name,
-        }),
-        h("p", null, "我是p标签"),
-      ]
-    );
-  }
-}
-
 
 const $dom = document.getElementById("app");
 const app = h(App);
-const app2 = h(App2);
-
 $dom && render(app, $dom);
-setTimeout(() => {
-  $dom && render(app2, $dom);
- },1000)
+// setTimeout(() => {
+//   $dom && render(app2, $dom);
+// }, 1000);
+
+// const prevVNode = h("div", null, [h("p", null, "22222"), h("p", null, "3333")]);
+
+// const nextVNode = h("div", null, [
+//   h("p", null, "444444"),
+//   h("p", null, "655555"),
+// ]);
+
+// $dom && render(prevVNode, $dom);
+// setTimeout(() => {
+//   $dom && render(nextVNode, $dom);
+// }, 1000);

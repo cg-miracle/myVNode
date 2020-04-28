@@ -8,7 +8,6 @@ export interface containerType extends HTMLElement {
 
 export function render(vnode: VNode, container: containerType) {
   const oldVNode = container.vnode;
-  console.log(oldVNode)
   if (!oldVNode) {
     mount(vnode, container);
     container.vnode = vnode;
@@ -58,12 +57,26 @@ function mountStatefulComponent(vnode: VNode, container: containerType) {
    * 有状态组件此刻tag是一个class
    * 实例化组件 获取mount返回的vnode
    */
-  const { tag } = vnode;
+  const { tag, data } = vnode;
   const statefulComp = tag as ClassComponent;
   const instance = new statefulComp();
-  instance.$vnode = instance.render(); // 方便获取挂载后的真实el元素
-  mount(instance.$vnode, container);
-  instance.$el = vnode.el = instance.$vnode.el;
+  instance._update = function () {
+    if (instance._mounted) {
+      const oldVNode = instance.$vnode;
+      const newVnode = instance.render();
+      patch(oldVNode, newVnode, instance.$vnode.el.parentNode);
+    } else {
+      instance.$vnode = instance.render(); // 方便获取挂载后的真实el元素
+      mount(instance.$vnode, container);
+      instance.$el = vnode.el = instance.$vnode.el;
+      instance.$props = data;
+      instance._mounted = true;
+      // mounted 生命周期
+      instance.componentDidMount && instance.componentDidMount();
+    }
+  };
+
+  instance._update();
 }
 
 function mountFunctionalComponent(vnode: VNode, container: containerType) {
@@ -88,7 +101,6 @@ function mountELement(vnode: VNode, container: containerType) {
   let { tag, data, children } = vnode;
   const $dom = document.createElement(tag as string);
   vnode.el = $dom;
-
   data && updateProps(vnode, data);
   children && updateChildren(children, $dom);
   container && container.appendChild($dom);
@@ -102,14 +114,13 @@ function updateProps(vnode: VNode, data: VNodeData) {
 
 function updateChildren(children: VNodeChildren, container: containerType) {
   /**
-   * 单个字符串就是文本节点
+
    * children是单个对象就是single vnode
    * chilren是数组就是vnode array
    */
-  if (typeof children === "string") {
-    const textVnode = h(null, null, children);
-    mount(textVnode, container);
-  } else if (Array.isArray(children)) {
+  if (Array.isArray(children)) {
     children.forEach((value) => mount(value, container));
+  } else if (children && typeof children === "object") {
+    mount(children, container);
   }
 }

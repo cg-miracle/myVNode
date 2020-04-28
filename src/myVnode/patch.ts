@@ -1,6 +1,6 @@
-import { VNode, VNodeFLags } from "./vnode";
+import { VNode, VNodeFLags, VNodeChildren } from "./vnode";
 import { containerType, mount } from "./render";
-import { setPriority } from "os";
+import { isObejct } from "./utils";
 
 // 对比新旧节点差异，将改动部分打补丁
 export const patch = function (
@@ -19,12 +19,21 @@ export const patch = function (
     newNodeFlag === VNodeFLags.STATEFUL_COMPONENT ||
     newNodeFlag === VNodeFLags.FUNCTIONAL_COMPONENT
   ) {
-    patchComponent();
+    patchComponent(oldVNode, newVNode, container);
   } else if (newNodeFlag === VNodeFLags.TEXT) {
-    patchText();
+    patchText(oldVNode, newVNode);
   }
 };
 
+/**
+ *
+ * @param el
+ * @param propKey
+ * @param oldVal
+ * @param newVal
+ * patch props属性  包括样式 class 事件以及自定义属性
+ *
+ */
 export function patchProps(el: any, propKey: string, oldVal: any, newVal: any) {
   switch (propKey) {
     case "style":
@@ -77,7 +86,7 @@ function patchElement(
     replaceVNode(oldVNode, newVNode, container);
     return;
   }
-  const el = (oldVNode.el = newVNode.el);
+  const el = (newVNode.el = oldVNode.el);
   const oldProps = oldVNode.data;
   const newProps = newVNode.data;
   // 将新增属性全部patch 再把不存在于新data上的key&&value 从oldProps上删除
@@ -96,10 +105,26 @@ function patchElement(
       }
     }
   }
+
+  patchChildren(oldVNode.children, newVNode.children, el as HTMLElement);
 }
 
-function patchComponent() {}
-function patchText() {}
+function patchComponent(
+  oldVNode: VNode,
+  newVNode: VNode,
+  container: containerType
+) {}
+
+// 只有文本内容不一样需要patch
+function patchText(oldVNode: VNode, newVNode: VNode) {
+  const el = (newVNode.el = oldVNode.el);
+  if (
+    typeof newVNode.children == "string" &&
+    oldVNode.children !== newVNode.children
+  ) {
+    (el as HTMLElement).nodeValue = newVNode.children;
+  }
+}
 
 function replaceVNode(
   oldVNode: VNode,
@@ -108,4 +133,69 @@ function replaceVNode(
 ) {
   oldVNode.el && container.removeChild(oldVNode.el);
   mount(newVNode, container);
+}
+
+/**
+ *
+ * @param oldChildren
+ * @param newChildren
+ * @param container
+ * 1. 老的children不存在 新的children存在 新的全部挂载
+ * 2. 新的children不存在 老的children存在 老的全部卸载
+ * 3. 新老同时存在 按情况处理
+ */
+function patchChildren(
+  oldChildren: VNodeChildren = null,
+  newChildren: VNodeChildren = null,
+  container: HTMLElement
+) {
+  if (!oldChildren) {
+    handleNoOldChildren(newChildren, container);
+    return;
+  }
+
+  if (!newChildren) {
+    handleNoNewChildren(oldChildren, container);
+    return;
+  }
+  if (oldChildren && newChildren) {
+    handleNormal(oldChildren, newChildren, container);
+  }
+}
+
+function handleNoOldChildren(children: VNodeChildren, container: HTMLElement) {
+  if (Array.isArray(children)) {
+    children.forEach((vn) => mount(vn, container));
+  } else if (children && typeof children === "object") {
+    mount(children, container);
+  }
+}
+
+function handleNoNewChildren(children: VNodeChildren, container: HTMLElement) {
+  if (Array.isArray(children)) {
+    children.forEach((vn) => container.removeChild(vn.el as HTMLElement));
+  } else if (children && typeof children === "object") {
+    container.removeChild(children.el as HTMLElement);
+  }
+}
+
+// 新老children同时存在
+function handleNormal(
+  oldChildren: VNodeChildren,
+  newChildren: VNodeChildren,
+  container: HTMLElement
+) {
+  // 老数组新单节点
+  if (Array.isArray(oldChildren) && isObejct(newChildren)) {
+    oldChildren.forEach((vn) => container.removeChild(vn.el as HTMLElement));
+    mount(newChildren as VNode, container);
+  } else if (Array.isArray(newChildren) && isObejct(oldChildren)) {
+    // 新数组旧单节点
+    container.removeChild((oldChildren as VNode).el as HTMLElement);
+    newChildren.forEach((vn) => mount(vn, container));
+  } else if (Array.isArray(newChildren) && Array.isArray(oldChildren)) {
+    // 多对多  todo diff算法
+    oldChildren.forEach((vn) => container.removeChild(vn.el as HTMLElement));
+    newChildren.forEach((vn) => mount(vn, container));
+  }
 }

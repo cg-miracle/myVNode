@@ -3,6 +3,8 @@ export interface ClassComponent {
 }
 
 export class Component {
+  _update() { }
+  
   render() {
     throw "缺少render 函数";
   }

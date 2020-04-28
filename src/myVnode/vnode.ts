@@ -11,6 +11,7 @@ type VNodeHelper = (
 export type VNodeChildren = VNode[] | VNode | string | null;
 
 export interface VNode {
+  _isVNode: Boolean;
   tag: VNodeTag;
   el?: HTMLElement | Text;
   data: VNodeData | null;
@@ -35,6 +36,7 @@ export enum VNodeFLags {
   FUNCTIONAL_COMPONENT,
 }
 
+// 生成vnode的辅助函数
 export const h: VNodeHelper = function (tag, props = null, children = null) {
   let flag = VNodeFLags.HTMLELEMENT;
   if (typeof tag == "string") {
@@ -48,10 +50,26 @@ export const h: VNodeHelper = function (tag, props = null, children = null) {
     flag = VNodeFLags.TEXT;
   }
 
+  // 如果children是字符串 当作text vnode处理
+  if (typeof children === "string") {
+    children = createTextNode(children);
+  }
+
   return {
+    _isVNode: true,
     tag,
     children,
     flag,
     data: props,
   };
 };
+
+function createTextNode(text: string): VNode {
+  return {
+    _isVNode: true,
+    tag: null,
+    data: null,
+    flag: VNodeFLags.TEXT,
+    children: text,
+  };
+}
